@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import self.chera.spacecrew.ui.theme.Spacecrew2Theme
 
 class MainActivity : ComponentActivity() {
@@ -26,10 +31,54 @@ class MainActivity : ComponentActivity() {
         setContent {
             Spacecrew2Theme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    DeviceScan(
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    Root(modifier = Modifier.padding(innerPadding))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun Root(
+    modifier: Modifier = Modifier
+) {
+    val navController = rememberNavController()
+    NavHost(navController, startDestination = "main") {
+        composable("main") {
+            Main(
+                onClickScanForDevice = { navController.navigate("scan") },
+                modifier = modifier
+            )
+        }
+        composable(
+            route = "scan",
+            enterTransition = { slideIntoContainer(towards = AnimatedContentTransitionScope.SlideDirection.Left) },
+            exitTransition = { slideOutOfContainer(towards = AnimatedContentTransitionScope.SlideDirection.Right) }
+        ) {
+            DeviceScan(modifier = modifier)
+        }
+    }
+}
+
+@Composable
+fun Main(
+    onClickScanForDevice: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(24.dp)
+    ) {
+        Text(
+            text = "connected to (0) devices",
+            modifier = Modifier.weight(1.0F)
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.weight(1.0F))
+            Button(onClick = onClickScanForDevice) {
+                Text(text = "Scan for devices")
             }
         }
     }
@@ -44,47 +93,18 @@ fun DeviceScan(
     ) {
         Text(
             text = "device list",
-            modifier = modifier.weight(1.0F)
+            modifier = Modifier.weight(1.0F)
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = modifier.padding(top = 16.dp)
+            modifier = Modifier.padding(top = 16.dp)
         ) {
             Text(
                 text = "0 device(s) found",
-                modifier = modifier.weight(1.0F)
+                modifier = Modifier.weight(1.0F)
             )
             Button(onClick = { /*TODO*/ }) {
-                Text(
-                    text = "Scan",
-                    modifier = modifier
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun Main(
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(24.dp)
-    ) {
-        Text(
-            text = "connected to (0) devices",
-            modifier = modifier.weight(1.0F)
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = modifier.padding(top = 16.dp)
-        ) {
-            Spacer(modifier = modifier.weight(1.0F))
-            Button(onClick = { /*TODO*/ }) {
-                Text(
-                    text = "Scan for devices",
-                    modifier = modifier
-                )
+                Text(text = "Scan",)
             }
         }
     }
@@ -94,6 +114,6 @@ fun Main(
 @Composable
 fun GreetingPreview() {
     Spacecrew2Theme {
-        Main()
+        Root(Modifier.padding(16.dp))
     }
 }
