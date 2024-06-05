@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Parcel
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.ActivityCompat
@@ -19,11 +20,18 @@ enum class BluetoothDevicesState { IDLE, SCANNING, CONNECTING, FINISHED }
 
 data class Device(
     val address: String,
-    val name: String = "",
+    var name: String = "",
+    var isRetrievingName: Boolean = false,
+
+    val source: BluetoothDevice = BluetoothDevice.CREATOR.createFromParcel(Parcel.obtain()) // this is only for testing
 )
 
 fun BluetoothDevice.asDevice(): Device {
-    return Device(this.address, this.address)
+    return if (this.name != null) {
+        Device(this.address, this.name, source = this)
+    } else {
+        Device(this.address, "retrieving name...", true, source = this)
+    }
 }
 
 class BluetoothDevicesViewModel : ViewModel() {
@@ -64,7 +72,10 @@ class BluetoothDevicesViewModel : ViewModel() {
                         BluetoothDevice.EXTRA_DEVICE,
                         BluetoothDevice::class.java
                     )
-                    device?.let { _deviceList.add(it.asDevice()) }
+                    device?.let {
+                        val foundDevice = it.asDevice()
+                        _deviceList.add(foundDevice)
+                    }
                 }
 
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {

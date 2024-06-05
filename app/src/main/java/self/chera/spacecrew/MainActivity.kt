@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,6 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -39,6 +45,13 @@ import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import self.chera.spacecrew.ui.theme.Spacecrew2Theme
 
 class MainActivity : ComponentActivity() {
@@ -137,7 +150,7 @@ fun ConnectedDevices(
             modifier = Modifier.padding(top = 16.dp)
         ) {
             Column(modifier = Modifier.weight(1.0F)) {
-                Text(text = "found (0) devices")
+                Text(text = "found ${devices.size} devices")
                 Text(text = "connected to (0) devices")
             }
             Button(onClick = onClickScanForDevice) {
@@ -174,7 +187,7 @@ fun DeviceList(devices: List<Device>, modifier: Modifier) {
     ) {
         if (devices.isNotEmpty()) {
             LazyColumn() {
-                items(devices) { DeviceCard(deviceName = it) }
+                items(devices) { DeviceCard(device = it) }
             }
         } else {
             Text(
@@ -187,16 +200,41 @@ fun DeviceList(devices: List<Device>, modifier: Modifier) {
 }
 
 @Composable
-fun DeviceCard(deviceName: Device) {
+fun DeviceCard(device: Device) {
+    var isRetrievingName by rememberSaveable { mutableStateOf(device.isRetrievingName) }
+    var retrievingInProgress by rememberSaveable { mutableStateOf(false) }
+    var deviceName by rememberSaveable { mutableStateOf(device.name) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-//        CircularProgressIndicator(modifier = Modifier.size(16.dp))
-        Text(
-            text = deviceName.name, modifier = Modifier
-                .weight(1.0F)
-                .padding(start = 8.dp), color = MaterialTheme.colorScheme.tertiary
-        )
+        if (isRetrievingName) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+            if (!retrievingInProgress) {
+                retrievingInProgress = true
+                CoroutineScope(Dispatchers.Default).launch {
+                    val retrievedName = withTimeoutOrNull(10000) {
+                        var retrieving: String? = null
+                        while (retrieving == null) {
+                            delay(1000)
+                            retrieving = device.source.name
+                        }
+                        retrieving
+                    }
+                    withContext(Dispatchers.Main) {
+                        if (retrievedName != null) {
+                            deviceName = retrievedName
+                        } else {
+                            deviceName = "[no name available]"
+                        }
+                        isRetrievingName = false
+                    }
+                }
+            }
+        }
+        Text(text = deviceName, modifier = Modifier
+            .weight(1.0F)
+            .padding(start = 8.dp))
         Button(onClick = { /*TODO*/ }) {
             Text(text = "Connect")
         }
@@ -207,7 +245,7 @@ fun DeviceCard(deviceName: Device) {
 @Composable
 fun GreetingPreview() {
     Spacecrew2Theme {
-        val devices = (1..2).map { Device("devices #$it") }.toList()
+        val devices = (1..2).map { Device("devices #$it", "devices #$it") }.toList()
         ConnectedDevices(devices, {})
     }
 }
