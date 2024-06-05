@@ -7,14 +7,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,16 +72,9 @@ fun Navigation(modifier: Modifier = Modifier) {
     NavHost(navController, startDestination = "main") {
         composable("main") {
             ConnectedDevices(
-                onClickScanForDevice = { navController.navigate("scan") },
+                onClickScanForDevice = { /* TODO */ },
                 modifier = modifier
             )
-        }
-        composable(
-            route = "scan",
-            enterTransition = { slideIntoContainer(towards = AnimatedContentTransitionScope.SlideDirection.Left) },
-            exitTransition = { slideOutOfContainer(towards = AnimatedContentTransitionScope.SlideDirection.Right) }
-        ) {
-            DeviceScan(modifier = modifier)
         }
     }
 }
@@ -91,17 +87,18 @@ fun ConnectedDevices(
     Column(
         modifier = modifier.padding(24.dp)
     ) {
-        Text(
-            text = "connected to (0) devices",
-            modifier = Modifier.weight(1.0F)
-        )
+        val devices = (1..8).map { Device("devices #$it") }.toList()
+        DeviceList(devices = devices, modifier.weight(1.0F))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 16.dp)
         ) {
-            Spacer(modifier = Modifier.weight(1.0F))
+            Column(modifier = Modifier.weight(1.0F)) {
+                Text(text = "found (0) devices")
+                Text(text = "connected to (0) devices")
+            }
             Button(onClick = onClickScanForDevice) {
-                Text(text = "Scan for devices")
+                Text(text = "Scan")
             }
         }
     }
@@ -124,30 +121,35 @@ fun AskForBluetooth(
     }
 }
 
-@Composable
-fun DeviceScan(
-    modifier: Modifier = Modifier
-) {
+data class Device(
+    val name: String
+) 
 
+@Composable
+fun DeviceList(devices: List<Device>, modifier: Modifier) {
     Column(
-        modifier = modifier.padding(24.dp)
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.inverseOnSurface)
+            .padding(4.dp),
     ) {
-        Text(
-            text = "device list",
-            modifier = Modifier.weight(1.0F)
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 16.dp)
-        ) {
-            Text(
-                text = "0 device(s) found",
-                modifier = Modifier.weight(1.0F)
-            )
-            Button(onClick = { /*TODO*/ }) {
-                Text(text = "Scan",)
+        if (devices.isNotEmpty()) {
+            LazyColumn() {
+                items(devices) {
+                    DeviceCard(deviceName = it)
+                }
             }
+        } else {
+            Text("No device found", color = MaterialTheme.colorScheme.tertiary)
         }
+    }
+}
+
+@Composable
+fun DeviceCard(deviceName: Device) {
+    Column(
+        modifier = Modifier.padding(8.dp)
+    ) {
+        Text(text = deviceName.name)
     }
 }
 
@@ -155,6 +157,6 @@ fun DeviceScan(
 @Composable
 fun GreetingPreview() {
     Spacecrew2Theme {
-        Root(Modifier.padding(16.dp))
+        ConnectedDevices({})
     }
 }
