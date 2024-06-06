@@ -5,12 +5,17 @@ package self.chera.spacecrew
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.background
@@ -32,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,8 +90,8 @@ fun Root(activity: ComponentActivity, modifier: Modifier = Modifier) {
 @Composable
 fun BluetoothLayer(
     activity: ComponentActivity,
+    modifier: Modifier = Modifier,
     ifGranted: @Composable () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     val bluetoothPermissionState = rememberMultiplePermissionsState(
         listOf(
@@ -98,6 +104,31 @@ fun BluetoothLayer(
         ),
     )
 
+    BluetoothPermissionLayer(activity = activity,
+        bluetoothPermissionState = bluetoothPermissionState,
+        ifGranted = {
+            BluetoothToggleLayer(
+                activity = activity,
+                ifBluetoothOn = { ifGranted() },
+                ifBluetoothOff = { toggleBluetoothOn ->
+                    AskForBluetoothToggle(toggleBluetoothOn, modifier)
+                })
+        },
+        ifNotGranted = { permissionState ->
+            AskForBluetoothPermission(
+                askForPermission = { permissionState.launchMultiplePermissionRequest() },
+                modifier = modifier
+            )
+        })
+}
+
+@Composable
+fun BluetoothPermissionLayer(
+    activity: ComponentActivity,
+    bluetoothPermissionState: MultiplePermissionsState,
+    ifGranted: @Composable () -> Unit,
+    ifNotGranted: @Composable (MultiplePermissionsState) -> Unit,
+) {
     if (bluetoothPermissionState.allPermissionsGranted) {
         val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
@@ -117,7 +148,68 @@ fun BluetoothLayer(
 
         ifGranted()
     } else {
-        AskForBluetooth(permissionStates = bluetoothPermissionState, modifier)
+        ifNotGranted(bluetoothPermissionState)
+    }
+}
+
+@Composable
+fun BluetoothToggleLayer(
+    activity: ComponentActivity,
+    ifBluetoothOn: @Composable () -> Unit,
+    ifBluetoothOff: @Composable (() -> Unit) -> Unit,
+) {
+    val manager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    val bluetooth = manager.adapter
+
+    var isBluetoothOn by remember { mutableStateOf(bluetooth.isEnabled) }
+
+    val enableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+    val toggleBT = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { isBluetoothOn = bluetooth.isEnabled }
+
+    if (isBluetoothOn) {
+        ifBluetoothOn()
+    } else {
+        ifBluetoothOff { toggleBT.launch(enableIntent) }
+    }
+}
+
+
+@Composable
+fun AskForBluetoothPermission(
+    askForPermission: () -> Unit,
+    modifier: Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Text("Bluetooth is needed")
+        Button(onClick = askForPermission) {
+            Text("Grant permission")
+        }
+    }
+}
+
+
+@Composable
+fun AskForBluetoothToggle(
+    toggleBluetoothOn: () -> Unit,
+    modifier: Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Text("Bluetooth is turned off")
+        Button(
+            onClick = { toggleBluetoothOn() }
+        ) {
+            Text(text = "Turn ON")
+        }
     }
 }
 
@@ -165,23 +257,6 @@ fun ConnectedDevices(
             Button(onClick = onClickScanForDevice) {
                 Text(text = "Scan")
             }
-        }
-    }
-}
-
-@Composable
-fun AskForBluetooth(
-    permissionStates: MultiplePermissionsState,
-    modifier: Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier.fillMaxSize()
-    ) {
-        Text("Bluetooth is needed")
-        Button(onClick = { permissionStates.launchMultiplePermissionRequest() }) {
-            Text("Grant permission")
         }
     }
 }
@@ -241,9 +316,11 @@ fun DeviceCard(device: Device) {
                 }
             }
         }
-        Text(text = deviceName, modifier = Modifier
-            .weight(1.0F)
-            .padding(start = 8.dp))
+        Text(
+            text = deviceName, modifier = Modifier
+                .weight(1.0F)
+                .padding(start = 8.dp)
+        )
         Button(onClick = { /*TODO*/ }) {
             Text(text = "Connect")
         }
