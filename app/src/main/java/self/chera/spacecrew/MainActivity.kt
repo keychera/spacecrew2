@@ -6,10 +6,13 @@ import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,7 +32,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,11 +52,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import self.chera.spacecrew.ui.theme.Spacecrew2Theme
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.S)
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -68,13 +71,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.S)
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun Root(activity: ComponentActivity, modifier: Modifier = Modifier) {
     BluetoothLayer(activity, ifGranted = {
         Navigation(activity, modifier)
     })
 }
 
+@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun BluetoothLayer(
     activity: ComponentActivity,
@@ -116,6 +122,7 @@ fun BluetoothLayer(
 }
 
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun Navigation(activity: ComponentActivity, modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     NavHost(navController, startDestination = "main") {
@@ -126,6 +133,7 @@ fun Navigation(activity: ComponentActivity, modifier: Modifier = Modifier) {
 }
 
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun ConnectedDevices(activity: ComponentActivity, modifier: Modifier = Modifier) {
     val btDevicesViewModel: BluetoothDevicesViewModel = viewModel(activity)
     ConnectedDevices(
@@ -136,6 +144,7 @@ fun ConnectedDevices(activity: ComponentActivity, modifier: Modifier = Modifier)
 }
 
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun ConnectedDevices(
     devices: List<Device>,
     onClickScanForDevice: () -> Unit,
@@ -178,6 +187,7 @@ fun AskForBluetooth(
 }
 
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun DeviceList(devices: List<Device>, modifier: Modifier) {
     Column(
         modifier = modifier
@@ -200,9 +210,9 @@ fun DeviceList(devices: List<Device>, modifier: Modifier) {
 }
 
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun DeviceCard(device: Device) {
     var isRetrievingName by rememberSaveable { mutableStateOf(device.isRetrievingName) }
-    var retrievingInProgress by rememberSaveable { mutableStateOf(false) }
     var deviceName by rememberSaveable { mutableStateOf(device.name) }
 
     Row(
@@ -210,8 +220,7 @@ fun DeviceCard(device: Device) {
     ) {
         if (isRetrievingName) {
             CircularProgressIndicator(modifier = Modifier.size(16.dp))
-            if (!retrievingInProgress) {
-                retrievingInProgress = true
+            LaunchedEffect(key1 = device.address) {
                 CoroutineScope(Dispatchers.Default).launch {
                     val retrievedName = withTimeoutOrNull(10000) {
                         var retrieving: String? = null
@@ -243,6 +252,7 @@ fun DeviceCard(device: Device) {
 
 @Preview(showBackground = true, heightDp = 360, widthDp = 360)
 @Composable
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun GreetingPreview() {
     Spacecrew2Theme {
         val devices = (1..2).map { Device("devices #$it", "devices #$it") }.toList()

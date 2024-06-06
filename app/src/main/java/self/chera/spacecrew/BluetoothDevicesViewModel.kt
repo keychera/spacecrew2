@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Parcel
+import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.ActivityCompat
@@ -26,9 +27,11 @@ data class Device(
     val source: BluetoothDevice = BluetoothDevice.CREATOR.createFromParcel(Parcel.obtain()) // this is only for testing
 )
 
+@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun BluetoothDevice.asDevice(): Device {
-    return if (this.name != null) {
-        Device(this.address, this.name, source = this)
+    val name: String? = this.name
+    return if (name != null) {
+        Device(this.address, name, source = this)
     } else {
         Device(this.address, "retrieving name...", true, source = this)
     }
@@ -59,6 +62,7 @@ class BluetoothDevicesViewModel : ViewModel() {
     }
 
     val receiver = object : BroadcastReceiver() {
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onReceive(context: Context, intent: Intent) {
             val action: String = intent.action.toString()
             when (action) {
