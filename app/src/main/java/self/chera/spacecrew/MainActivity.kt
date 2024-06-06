@@ -229,6 +229,7 @@ fun Navigation(activity: ComponentActivity, modifier: Modifier = Modifier) {
 fun ConnectedDevices(activity: ComponentActivity, modifier: Modifier = Modifier) {
     val btDevicesViewModel: BluetoothDevicesViewModel = viewModel(activity)
     ConnectedDevices(
+        activity = activity,
         devices = btDevicesViewModel.deviceList,
         onClickScanForDevice = { btDevicesViewModel.scanDevices(activity) },
         modifier = modifier
@@ -238,6 +239,7 @@ fun ConnectedDevices(activity: ComponentActivity, modifier: Modifier = Modifier)
 @Composable
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun ConnectedDevices(
+    activity: ComponentActivity,
     devices: List<Device>,
     onClickScanForDevice: () -> Unit,
     modifier: Modifier = Modifier
@@ -245,7 +247,7 @@ fun ConnectedDevices(
     Column(
         modifier = modifier.padding(24.dp)
     ) {
-        DeviceList(devices = devices, modifier.weight(1.0F))
+        DeviceList(activity = activity, devices = devices, modifier.weight(1.0F))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 16.dp)
@@ -263,7 +265,7 @@ fun ConnectedDevices(
 
 @Composable
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-fun DeviceList(devices: List<Device>, modifier: Modifier) {
+fun DeviceList(activity: ComponentActivity, devices: List<Device>, modifier: Modifier) {
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.inverseOnSurface)
@@ -271,8 +273,12 @@ fun DeviceList(devices: List<Device>, modifier: Modifier) {
             .padding(start = 8.dp),
     ) {
         if (devices.isNotEmpty()) {
-            LazyColumn() {
-                items(devices) { DeviceCard(device = it) }
+            LazyColumn {
+                items(devices) { device ->
+                    val btDevicesViewModel: BluetoothDevicesViewModel = viewModel(activity)
+                    val index = btDevicesViewModel.deviceList.indexOf(device)
+                    DeviceCard(btDevicesViewModel = btDevicesViewModel, deviceIdx = index)
+                }
             }
         } else {
             Text(
@@ -286,14 +292,10 @@ fun DeviceList(devices: List<Device>, modifier: Modifier) {
 
 @Composable
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-fun DeviceCard(device: Device) {
-    var isRetrievingName by rememberSaveable { mutableStateOf(device.isRetrievingName) }
-    var deviceName by rememberSaveable { mutableStateOf(device.name) }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (isRetrievingName) {
+fun DeviceCard(btDevicesViewModel: BluetoothDevicesViewModel, deviceIdx: Int) {
+    val device = btDevicesViewModel.deviceList[deviceIdx]
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (device.isRetrievingName) {
             CircularProgressIndicator(modifier = Modifier.size(16.dp))
             LaunchedEffect(key1 = device.address) {
                 CoroutineScope(Dispatchers.Default).launch {
@@ -305,19 +307,16 @@ fun DeviceCard(device: Device) {
                         }
                         retrieving
                     }
-                    withContext(Dispatchers.Main) {
-                        if (retrievedName != null) {
-                            deviceName = retrievedName
-                        } else {
-                            deviceName = "[no name available]"
-                        }
+                    val updatedDevice = device.copy().apply {
+                        name = retrievedName ?: "[no name available]"
                         isRetrievingName = false
                     }
+                    btDevicesViewModel.deviceList[deviceIdx] = updatedDevice
                 }
             }
         }
         Text(
-            text = deviceName, modifier = Modifier
+            text = device.name, modifier = Modifier
                 .weight(1.0F)
                 .padding(start = 8.dp)
         )
@@ -332,7 +331,6 @@ fun DeviceCard(device: Device) {
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun GreetingPreview() {
     Spacecrew2Theme {
-        val devices = (1..2).map { Device("devices #$it", "devices #$it") }.toList()
-        ConnectedDevices(devices, {})
+
     }
 }
